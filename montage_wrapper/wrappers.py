@@ -370,7 +370,7 @@ def mosaic(input_dir, output_dir, header=None, image_table=None, mpi=False,
            n_proc=8, background_match=False, imglist=None, combine="mean",
            exact_size=False, cleanup=True, bitpix=-32, level_only=True,
            work_dir=None, background_n_iter=None, subset_fast=False,
-           hdu=None):
+           hdu=None, header_kwds=None):
     """
     Combine FITS files into a mosaic
 
@@ -441,6 +441,10 @@ def mosaic(input_dir, output_dir, header=None, image_table=None, mpi=False,
 
     hdu: int, optional
         Which HDU to use when mosaicing
+
+    header_kwds: dict, optional
+        place any keywords needed by mMakeHdr in a dictionary 
+        (example: header_kwds=dict(system='GAL') for galactic orientation)
     """
 
     if not combine in ['mean', 'median', 'count']:
@@ -450,6 +454,9 @@ def mosaic(input_dir, output_dir, header=None, image_table=None, mpi=False,
     if len(glob.glob(os.path.join(input_dir, '*'))) == 0:
         raise Exception("No files in input directory")
 
+    if header_kwds is None:
+        header_kwds = {}
+        
     # Find path to input and output directory
     input_dir = os.path.abspath(input_dir)
     output_dir = os.path.abspath(output_dir)
@@ -531,7 +538,7 @@ def mosaic(input_dir, output_dir, header=None, image_table=None, mpi=False,
     # Compute header if needed
     if not header:
         log.info("Computing optimal header")
-        m.mMakeHdr(images_raw_all_tbl, header_hdr)
+        m.mMakeHdr(images_raw_all_tbl, header_hdr, **header_kwds)
         images_raw_tbl = images_raw_all_tbl
     else:
         log.info("Checking for coverage")
