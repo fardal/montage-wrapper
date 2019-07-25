@@ -370,7 +370,7 @@ def mosaic(input_dir, output_dir, header=None, image_table=None, mpi=False,
            n_proc=8, background_match=False, imglist=None, combine="mean",
            exact_size=False, cleanup=True, bitpix=-32, level_only=True,
            work_dir=None, background_n_iter=None, subset_fast=False,
-           hdu=None, header_kwds=None):
+           hdu=None, header_kwds=None, verbose=False):
     """
     Combine FITS files into a mosaic
 
@@ -531,18 +531,18 @@ def mosaic(input_dir, output_dir, header=None, image_table=None, mpi=False,
     # List frames to mosaic
     if image_table is None:
         log.info("Listing raw frames")
-        m.mImgtbl(raw_dir, images_raw_all_tbl, img_list=imglist, corners=True)
+        m.mImgtbl(raw_dir, images_raw_all_tbl, img_list=imglist, corners=True, verbose=verbose)
     else:
         sh.copy2(image_table, images_raw_all_tbl)
 
     # Compute header if needed
     if not header:
         log.info("Computing optimal header")
-        m.mMakeHdr(images_raw_all_tbl, header_hdr, **header_kwds)
+        m.mMakeHdr(images_raw_all_tbl, header_hdr, verbose=verbose, **header_kwds)
         images_raw_tbl = images_raw_all_tbl
     else:
         log.info("Checking for coverage")
-        s = m.mSubset(images_raw_all_tbl, header_hdr, images_raw_tbl, fast_mode=subset_fast)
+        s = m.mSubset(images_raw_all_tbl, header_hdr, images_raw_tbl, fast_mode=subset_fast, verbose=verbose)
         if s.nmatches == 0:
             raise MontageError("No images overlap with the requested header")
 
@@ -556,16 +556,16 @@ def mosaic(input_dir, output_dir, header=None, image_table=None, mpi=False,
         table_filtered.write(images_raw_tbl, format='ascii.ipac')
 
     m.mProjExec(images_raw_tbl, header_hdr, projected_dir, stats_tbl,
-                raw_dir=raw_dir, mpi=mpi, n_proc=n_proc, exact=exact_size)
+                raw_dir=raw_dir, mpi=mpi, n_proc=n_proc, exact=exact_size, verbose=verbose)
 
     # List projected frames
-    s = m.mImgtbl(projected_dir, images_projected_tbl)
+    s = m.mImgtbl(projected_dir, images_projected_tbl, verbose=verbose)
     if s.count == 0:
         raise MontageError("No images were successfully projected")
 
     if background_match:
         log.info("Determining overlaps")
-        s = m.mOverlaps(images_projected_tbl, diffs_tbl)
+        s = m.mOverlaps(images_projected_tbl, diffs_tbl, verbose=verbose)
         if s.count == 0:
             log.info("No overlapping frames, backgrounds will not be adjusted")
             background_match = False
@@ -576,24 +576,24 @@ def mosaic(input_dir, output_dir, header=None, image_table=None, mpi=False,
 
         log.info("Modeling background")
         m.mDiffExec(diffs_tbl, header_hdr, diffs_dir, proj_dir=projected_dir,
-                    mpi=mpi, n_proc=n_proc)
-        m.mFitExec(diffs_tbl, fits_tbl, diffs_dir, mpi=mpi, n_proc=n_proc)
+                    mpi=mpi, n_proc=n_proc, verbose=verbose)
+        m.mFitExec(diffs_tbl, fits_tbl, diffs_dir, mpi=mpi, n_proc=n_proc, verbose=verbose)
         m.mBgModel(images_projected_tbl, fits_tbl, corrections_tbl,
-                   n_iter=background_n_iter, level_only=level_only)
+                   n_iter=background_n_iter, level_only=level_only, verbose=verbose)
 
         # Matching background
         log.info("Matching background")
         m.mBgExec(images_projected_tbl, corrections_tbl, corrected_dir,
-                  proj_dir=projected_dir, mpi=mpi, n_proc=n_proc)
+                  proj_dir=projected_dir, mpi=mpi, n_proc=n_proc, verbose=verbose)
         sh.copy(corrections_tbl, output_dir)
 
         # Mosaicking frames
         log.info("Mosaicking frames")
 
-        m.mImgtbl(corrected_dir, images_corrected_tbl)
+        m.mImgtbl(corrected_dir, images_corrected_tbl, verbose=verbose)
         m.mAdd(images_corrected_tbl, header_hdr,
                os.path.join(output_dir, 'mosaic64.fits'),
-               img_dir=corrected_dir, type=combine, exact=exact_size)
+               img_dir=corrected_dir, type=combine, exact=exact_size, verbose=verbose)
         sh.copy(images_projected_tbl, output_dir)
         sh.copy(images_corrected_tbl, output_dir)
 
@@ -604,15 +604,15 @@ def mosaic(input_dir, output_dir, header=None, image_table=None, mpi=False,
 
         m.mAdd(images_projected_tbl, header_hdr,
                os.path.join(output_dir, 'mosaic64.fits'),
-               img_dir=projected_dir, type=combine, exact=exact_size)
+               img_dir=projected_dir, type=combine, exact=exact_size, verbose=verbose)
         sh.copy(images_projected_tbl, output_dir)
 
     m.mConvert(os.path.join(output_dir, 'mosaic64.fits'),
                os.path.join(output_dir, 'mosaic.fits'),
-               bitpix=bitpix)
+               bitpix=bitpix, verbose=verbose)
     m.mConvert(os.path.join(output_dir, 'mosaic64_area.fits'),
                os.path.join(output_dir, 'mosaic_area.fits'),
-               bitpix=bitpix)
+               bitpix=bitpix, verbose=verbose)
 
     os.remove(os.path.join(output_dir, "mosaic64.fits"))
     os.remove(os.path.join(output_dir, "mosaic64_area.fits"))
